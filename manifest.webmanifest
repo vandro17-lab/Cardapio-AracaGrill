@@ -1,0 +1,26 @@
+{
+  "name": "Araçá Grill — Cardápio Inteligente",
+  "short_name": "Cardápio Araçá",
+  "description": "Módulo Cardápio Inteligente do sistema Araçá Grill — fichas, auditoria, gerador de cardápio e bloqueio inteligente de insumos.",
+  "start_url": "./Araca Grill.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1e1c19",
+  "theme_color": "#1e1c19",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
