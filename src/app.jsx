@@ -76,21 +76,12 @@ function ConfigModule() {
         <div className="config-card">
           <h3>Integração com IA</h3>
           <p className="config-card__sub">
-            A chave do Gemini é guardada localmente no IndexedDB. Pegue gratuitamente em{" "}
-            <a href="https://ai.google.dev" target="_blank" rel="noopener">ai.google.dev</a>{" "}
-            (até 1500 requisições/dia).
+            A IA usa o Gemini configurado no servidor (Vercel). Nenhuma chave é necessária aqui.
           </p>
-          <Field label="Chave da API do Gemini">
-            <input
-              type="password"
-              placeholder="AIza…"
-              value={draft.gemini_api_key}
-              onChange={(e) => setDraft({ ...draft, gemini_api_key: e.target.value })}
-            />
-          </Field>
-          {draft.gemini_api_key && (
-            <div style={{ fontSize: "12px", color: "var(--ok)", marginTop: "-4px" }}>✓ Chave configurada — IA ativa</div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--ok)" }}>
+            <span>✓</span>
+            <span>IA ativa via servidor — Gemini 2.0 Flash</span>
+          </div>
         </div>
 
         <div className="config-card">

@@ -2,50 +2,26 @@
 const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } = React;
 
 // ===== GEMINI API HELPER =====
-async function callGemini(apiKey, prompt) {
-  // Tenta o proxy do servidor (Vercel) primeiro — chave fica segura no servidor
-  const isHosted = location.hostname !== "localhost" && location.hostname !== "127.0.0.1";
-  if (isHosted) {
-    const proxyRes = await fetch("/api/gemini", {
+async function callGemini(_apiKey, prompt) {
+  // Usa sempre o proxy do Vercel (/api/gemini) — chave fica segura no servidor
+  let proxyRes, proxyData;
+  try {
+    proxyRes = await fetch("/api/gemini", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt }),
     });
-    // 503 = chave não configurada no servidor, cai no fallback abaixo
-    if (proxyRes.status !== 503) {
-      if (!proxyRes.ok) {
-        const err = await proxyRes.json().catch(() => ({}));
-        const msg = err.error?.message || err.error || "";
-        if (proxyRes.status === 429) throw new Error(`Limite de requisições atingido. ${msg}`);
-        throw new Error(`Erro Gemini ${proxyRes.status}: ${msg || "tente novamente."}`);
-      }
-      const data = await proxyRes.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    }
+    proxyData = await proxyRes.json();
+  } catch (netErr) {
+    throw new Error(`[rede] Não foi possível chamar /api/gemini: ${netErr.message}`);
   }
 
-  // Fallback: chave configurada pelo usuário nas Configurações
-  if (!apiKey) throw new Error("Configure a chave do Gemini nas Configurações ou peça ao administrador para configurá-la no Vercel.");
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const msg = err.error?.message || "";
-    if (res.status === 429) throw new Error(`Limite de requisições atingido. ${msg}`);
-    if (res.status === 403) throw new Error(`Sem permissão. Use uma chave do Google AI Studio (aistudio.google.com).`);
-    throw new Error(`Erro Gemini ${res.status}: ${msg || "verifique sua chave."}`);
+  if (!proxyRes.ok) {
+    const geminiMsg = proxyData?.error?.message || proxyData?.error || "";
+    throw new Error(`[${proxyRes.status}] ${geminiMsg || JSON.stringify(proxyData)}`);
   }
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  return proxyData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
 function parseGeminiJSON(text) {
