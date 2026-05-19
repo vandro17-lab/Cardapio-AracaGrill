@@ -4,7 +4,7 @@ const { useState, useEffect, useMemo, useRef, useCallback, createContext, useCon
 // ===== GEMINI API HELPER =====
 async function callGemini(apiKey, prompt) {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -16,9 +16,11 @@ async function callGemini(apiKey, prompt) {
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    if (res.status === 429) throw new Error("Limite de requisições da API atingido. Tente novamente em alguns minutos.");
-    if (res.status === 400 || res.status === 403) throw new Error("Chave da API inválida ou sem permissão. Verifique nas Configurações.");
-    throw new Error(err.error?.message || `Erro da API Gemini (${res.status}). Verifique sua chave.`);
+    const msg = err.error?.message || "";
+    if (res.status === 429) throw new Error(`Limite de requisições atingido (429). ${msg}`);
+    if (res.status === 403) throw new Error(`Sem permissão (403). Verifique se a chave é do Google AI Studio (aistudio.google.com). ${msg}`);
+    if (res.status === 400) throw new Error(`Chave inválida ou modelo indisponível (400). ${msg}`);
+    throw new Error(`Erro Gemini ${res.status}: ${msg || "verifique sua chave."}`);
   }
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
