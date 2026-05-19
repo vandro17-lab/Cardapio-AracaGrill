@@ -34,30 +34,6 @@ function AuditoriaModule() {
     setIaLoading(true);
     setIaResult("");
 
-    const apiKey = config.gemini_api_key;
-
-    if (!apiKey) {
-      // Análise local detalhada sem IA
-      await new Promise((r) => setTimeout(r, 600));
-      const lista = [];
-      if (stats.semFoto.length)
-        lista.push(`📷 **Fotos faltando** — ${stats.semFoto.length} prato(s) sem foto, incluindo "${stats.semFoto.slice(0, 3).map((d) => d.nome).join('", "')}". Fotos aumentam conversão em até 30% no delivery.`);
-      if (stats.nomeLongo.length)
-        lista.push(`✂️ **Nomes longos demais** — ${stats.nomeLongo.length} prato(s) excedem 40 caracteres. No iFood, nomes longos são truncados na busca.`);
-      if (stats.semDif.length)
-        lista.push(`💬 **Sem diferencial** — ${stats.semDif.length} prato(s) não têm diferenciais. A IA gerará descrições genéricas sem essa informação.`);
-      if (stats.semDest.length > stats.total * 0.7)
-        lista.push(`⭐ **Falta de destaques** — ${stats.semDest.length} de ${stats.total} pratos sem marcação. Marcar "Mais Pedido" aumenta ticket médio em 8-15%.`);
-      if (stats.total > 50)
-        lista.push(`📋 **Cardápio extenso** — ${stats.total} pratos ativos. Cardápios com mais de 50 itens reduzem conversão (paradoxo da escolha).`);
-      if (stats.semAlerg.length)
-        lista.push(`⚠️ **Alérgenos não declarados** — ${stats.semAlerg.length} prato(s) com ingredientes alergênicos sem marcação. Risco legal (ANVISA RDC 26/2015).`);
-      lista.push(`\n**Score: ${score}/100**\n\n_Configure sua chave do Gemini nas Configurações para obter análise personalizada com IA._`);
-      setIaResult(lista.join("\n\n"));
-      setIaLoading(false);
-      return;
-    }
-
     try {
       const resumo = {
         total_ativos: stats.total,
@@ -91,10 +67,10 @@ Estruture sua resposta com:
 
 Não invente informações. Use apenas os dados fornecidos.`;
 
-      const text = await callGemini(apiKey, prompt);
+      const text = await callGemini(null, prompt);
       setIaResult(text);
     } catch (err) {
-      setIaResult(`❌ **Erro ao conectar com o Gemini:** ${err.message}\n\nVerifique sua chave da API nas Configurações.`);
+      setIaResult(`❌ **Erro ao conectar com o Gemini:** ${err.message}`);
     }
 
     setIaLoading(false);
@@ -159,7 +135,7 @@ Não invente informações. Use apenas os dados fornecidos.`;
         {iaLoading ? (
           <div className="ia-loading">
             <div className="spinner"></div>
-            <p>Analisando {stats.total} pratos{config.gemini_api_key ? " com o Gemini" : ""}…</p>
+            <p>Analisando {stats.total} pratos com o Gemini…</p>
           </div>
         ) : (
           <div className="ia-result">

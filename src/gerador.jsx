@@ -36,18 +36,6 @@ function GeradorModule() {
     setLoading(true);
 
     const selecionados = dishes.filter((d) => sel.has(d.id));
-    const apiKey = config.gemini_api_key;
-
-    if (!apiKey) {
-      // Fallback: mock generation
-      await new Promise((r) => setTimeout(r, 1200));
-      const out = {};
-      for (const d of selecionados) out[d.id] = mockGenerate(d, plat, config.tom_de_voz);
-      setResults(out);
-      setLoading(false);
-      toast("Chave Gemini não configurada — textos gerados localmente (sem IA)", "warn");
-      return;
-    }
 
     try {
       const pratosPayload = selecionados.map((d) => ({
@@ -93,7 +81,7 @@ ${JSON.stringify(pratosPayload, null, 2)}
 RESPOSTA: Retorne APENAS um array JSON válido, sem markdown, sem texto extra:
 [{"id":"...","titulo":"...","descricao":"...","categoria_sugerida":"..."}]`;
 
-      const text = await callGemini(apiKey, prompt);
+      const text = await callGemini(null, prompt);
       const parsed = parseGeminiJSON(text);
 
       const out = {};
@@ -127,13 +115,6 @@ RESPOSTA: Retorne APENAS um array JSON válido, sem markdown, sem texto extra:
   const regen = async (id) => {
     setResults((r) => ({ ...r, [id]: { ...r[id], loading: true } }));
     const d = dishes.find((x) => x.id === id);
-    const apiKey = config.gemini_api_key;
-
-    if (!apiKey) {
-      await new Promise((r) => setTimeout(r, 600));
-      setResults((r) => ({ ...r, [id]: mockGenerate(d, plat, config.tom_de_voz, true) }));
-      return;
-    }
 
     try {
       const platRules = {
@@ -157,7 +138,7 @@ PRATO:
 RESPOSTA (JSON apenas):
 {"id":"${id}","titulo":"...","descricao":"...","categoria_sugerida":"..."}`;
 
-      const text = await callGemini(apiKey, prompt);
+      const text = await callGemini(null, prompt);
       const parsed = parseGeminiJSON(text);
       setResults((r) => ({
         ...r,
@@ -280,11 +261,10 @@ RESPOSTA (JSON apenas):
             <div className="info-row"><span>Tom de voz:</span><strong>{config.tom_de_voz}</strong><span className="muted">(altere em Configurações)</span></div>
             <div className="info-row"><span>Pratos selecionados:</span><strong>{sel.size}</strong></div>
             <div className="info-row"><span>Custo estimado API:</span><strong>~{Math.ceil(sel.size * 0.3)} requisições</strong><span className="muted">(grátis até 1500/dia)</span></div>
-            {!config.gemini_api_key && <div className="info-row" style={{ color: "var(--warn)" }}><span>⚠️ Sem chave do Gemini — textos serão gerados localmente (qualidade básica)</span></div>}
           </div>
           <div className="plat-picker__actions">
             <Btn kind="ghost" onClick={() => setStep(1)}>Voltar</Btn>
-            <Btn kind="primary" size="lg" icon={Icon.ai} onClick={gerar}>Gerar{config.gemini_api_key ? " com IA" : " (sem IA)"}</Btn>
+            <Btn kind="primary" size="lg" icon={Icon.ai} onClick={gerar}>Gerar com IA</Btn>
           </div>
         </div>
       )}
@@ -308,7 +288,7 @@ RESPOSTA (JSON apenas):
             <div className="ia-loading">
               <div className="spinner"></div>
               <p>Gerando descrições para {sel.size} pratos…</p>
-              <p className="muted">{config.tom_de_voz} · {plat}{config.gemini_api_key ? " · Gemini" : " · modo local"}</p>
+              <p className="muted">{config.tom_de_voz} · {plat} · Gemini</p>
             </div>
           ) : (
             <div className="result-grid">

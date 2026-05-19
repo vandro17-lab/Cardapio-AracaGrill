@@ -94,9 +94,7 @@ function ReportarFalta({ onDone }) {
       }
     }
 
-    const apiKey = config.gemini_api_key;
-
-    if (!apiKey || pratosAfetadosBruto.length === 0) {
+    if (pratosAfetadosBruto.length === 0) {
       await new Promise((r) => setTimeout(r, 800));
       setAnalise({ insumos: [...insumos], pratos: pratosAfetadosBruto });
       setLoading(false);
@@ -132,7 +130,7 @@ ${JSON.stringify(payload, null, 2)}
 RESPOSTA (JSON array somente, sem markdown):
 [{"dish_id":"...","classificacao":"critico|adaptavel|irrelevante","adaptacao":"..."}]`;
 
-      const text = await callGemini(apiKey, prompt);
+      const text = await callGemini(null, prompt);
       const parsed = parseGeminiJSON(text);
 
       if (Array.isArray(parsed)) {
@@ -224,7 +222,7 @@ RESPOSTA (JSON array somente, sem markdown):
   return (
     <div className="report-form">
       <h2>Quais insumos estão em falta hoje?</h2>
-      <p className="page__sub">Digite o nome — pode adicionar vários. {config.gemini_api_key ? "A IA vai classificar o impacto em cada prato." : "O sistema vai classificar automaticamente pelo campo 'essencial' de cada ficha."}</p>
+      <p className="page__sub">Digite o nome — pode adicionar vários. A IA vai classificar o impacto em cada prato.</p>
 
       <div className="ingr-input">
         <div className="ingr-pills">
@@ -254,7 +252,7 @@ RESPOSTA (JSON array somente, sem markdown):
       {loading ? (
         <div className="ia-loading">
           <div className="spinner"></div>
-          <p>Analisando impacto em {dishes.length} pratos{config.gemini_api_key ? " com o Gemini" : ""}…</p>
+          <p>Analisando impacto em {dishes.length} pratos com o Gemini…</p>
         </div>
       ) : (
         <div className="report-actions">
@@ -517,24 +515,6 @@ function Relatorios() {
     setIaLoading(true);
     setIaResult("");
 
-    const apiKey = config.gemini_api_key;
-    const top = ranking[0];
-
-    if (!apiKey) {
-      await new Promise((r) => setTimeout(r, 700));
-      let result = `**Análise dos últimos ${periodo} dias**\n\n`;
-      if (top) {
-        result += `O insumo que mais gerou problemas foi **${top.ingrediente}**: ${top.eventos} eventos, duração média de ${Math.round(top.totalHoras / top.eventos)}h e ${Math.round(top.totalBloq / top.eventos)} prato(s) bloqueado(s) por evento.\n\n`;
-        result += `**Recomendação:** aumente o estoque de ${top.ingrediente} em 30-40% e antecipe o pedido em 2 dias.\n\n`;
-      }
-      if (ranking.length > 1) result += `**Outros insumos críticos:**\n${ranking.slice(1, 4).map((r) => `• ${r.ingrediente} — ${r.eventos} eventos`).join("\n")}\n\n`;
-      const totalBloq = filtered.reduce((a, h) => a + h.pratos_bloqueados_count, 0);
-      result += `**Custo de oportunidade estimado:** com ticket médio de R$ 75, o impacto foi de aprox. **R$ ${(totalBloq * 75 * 2).toLocaleString("pt-BR")}** em vendas potenciais perdidas.\n\n_Configure o Gemini nas Configurações para análise mais aprofundada._`;
-      setIaResult(result);
-      setIaLoading(false);
-      return;
-    }
-
     try {
       const prompt = `Você é consultor de operações de restaurante. Analise o histórico de faltas de insumos abaixo.
 
@@ -558,10 +538,10 @@ Forneça:
 
 Seja específico com os dados reais. Escreva em português brasileiro, tom direto e profissional.`;
 
-      const text = await callGemini(apiKey, prompt);
+      const text = await callGemini(null, prompt);
       setIaResult(text);
     } catch (err) {
-      setIaResult(`❌ **Erro:** ${err.message}\n\nVerifique sua chave da API nas Configurações.`);
+      setIaResult(`❌ **Erro:** ${err.message}`);
     }
 
     setIaLoading(false);
@@ -641,7 +621,7 @@ Seja específico com os dados reais. Escreva em português brasileiro, tom diret
         }
       >
         {iaLoading ? (
-          <div className="ia-loading"><div className="spinner"></div><p>Analisando histórico{config.gemini_api_key ? " com o Gemini" : ""}…</p></div>
+          <div className="ia-loading"><div className="spinner"></div><p>Analisando histórico com o Gemini…</p></div>
         ) : (
           <div className="ia-result">
             {iaResult.split("\n\n").map((p, i) => (
