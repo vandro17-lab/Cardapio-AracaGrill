@@ -1,5 +1,5 @@
 // Service Worker - cache offline
-const CACHE = "araca-v2";
+const CACHE = "araca-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -35,9 +35,9 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-  // Don't cache Gemini API calls or CDN libraries
+  // Não cacheia chamadas externas (Gemini, Supabase, CDNs)
   const url = new URL(e.request.url);
-  if (url.hostname === "generativelanguage.googleapis.com" || url.hostname === "unpkg.com") return;
+  if (url.hostname === "generativelanguage.googleapis.com" || url.hostname === "unpkg.com" || url.hostname.endsWith(".supabase.co")) return;
 
   e.respondWith(
     caches.match(e.request).then((r) =>

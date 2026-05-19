@@ -35,7 +35,7 @@ function parseGeminiJSON(text) {
 
 Object.assign(window, { callGemini, parseGeminiJSON });
 
-// ===== STORE (IndexedDB via Dexie) =====
+// ===== STORE (Supabase) =====
 const StoreCtx = createContext(null);
 
 function useStore() {
@@ -43,11 +43,15 @@ function useStore() {
 }
 
 const DEFAULT_CONFIG = {
-  gemini_api_key: "",
   tom_de_voz: "descontraído",
   nome_restaurante: "Araçá Grill",
   telefone_whatsapp: "5515999999999",
 };
+
+const sb = window.supabase.createClient(
+  "https://prhppsfijsehladvkstr.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByaHBwc2ZpanNlaGxhZHZrc3RyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNDA1OTUsImV4cCI6MjA5NDcxNjU5NX0.wRL1f-b8r7u7QiLVYJ4WHL3sXNRSQI3tRY1dpWxmQNI"
+);
 
 function StoreProvider({ children }) {
   const [dishes, _setDishes] = useState([]);
@@ -55,45 +59,52 @@ function StoreProvider({ children }) {
   const [history, _setHistory] = useState([]);
   const [config, _setConfig] = useState(DEFAULT_CONFIG);
   const [ready, setReady] = useState(false);
-  const db = window.__db;
 
-  // Load from IndexedDB on mount; seed if empty
+  // Carrega do Supabase ao iniciar; semeia se vazio
   useEffect(() => {
     async function load() {
       try {
-        const [dbDishes, dbShortages, dbHistory, dbConfig] = await Promise.all([
-          db.dishes.toArray(),
-          db.shortages.toArray(),
-          db.shortage_history.toArray(),
-          db.config.toArray(),
+        const [
+          { data: dbDishes,   error: e1 },
+          { data: dbShortages, error: e2 },
+          { data: dbHistory,  error: e3 },
+          { data: dbConfig,   error: e4 },
+        ] = await Promise.all([
+          sb.from("dishes").select("data"),
+          sb.from("shortages").select("data"),
+          sb.from("shortage_history").select("data"),
+          sb.from("config").select("key, value"),
         ]);
+        if (e1 || e2 || e3 || e4) throw e1 || e2 || e3 || e4;
 
         if (dbDishes.length === 0) {
-          await db.dishes.bulkAdd(window.SEED_DISHES);
+          await sb.from("dishes").insert(window.SEED_DISHES.map((d) => ({ id: d.id, data: d })));
           _setDishes(window.SEED_DISHES.map((d) => ({ ...d })));
         } else {
-          _setDishes(dbDishes);
+          _setDishes(dbDishes.map((r) => r.data));
         }
 
         if (dbShortages.length === 0) {
-          await db.shortages.bulkAdd(window.SEED_SHORTAGES);
+          if (window.SEED_SHORTAGES.length)
+            await sb.from("shortages").insert(window.SEED_SHORTAGES.map((s) => ({ id: s.id, data: s })));
           _setShortages(window.SEED_SHORTAGES.map((s) => ({ ...s })));
         } else {
-          _setShortages(dbShortages);
+          _setShortages(dbShortages.map((r) => r.data));
         }
 
         if (dbHistory.length === 0) {
-          await db.shortage_history.bulkAdd(window.SEED_HISTORY);
+          if (window.SEED_HISTORY.length)
+            await sb.from("shortage_history").insert(window.SEED_HISTORY.map((h) => ({ id: h.id, data: h })));
           _setHistory(window.SEED_HISTORY.map((h) => ({ ...h })));
         } else {
-          _setHistory(dbHistory);
+          _setHistory(dbHistory.map((r) => r.data));
         }
 
         const configObj = {};
         dbConfig.forEach((c) => { configObj[c.key] = c.value; });
         _setConfig({ ...DEFAULT_CONFIG, ...configObj });
       } catch (err) {
-        console.error("Erro ao carregar IndexedDB, usando dados de exemplo:", err);
+        console.error("Erro ao carregar Supabase:", err);
         _setDishes(window.SEED_DISHES.map((d) => ({ ...d })));
         _setShortages(window.SEED_SHORTAGES.map((s) => ({ ...s })));
         _setHistory(window.SEED_HISTORY.map((h) => ({ ...h })));
@@ -103,7 +114,7 @@ function StoreProvider({ children }) {
     load();
   }, []);
 
-  // Recalculate blocked state whenever shortages change
+  // Recalcula bloqueios sempre que shortages mudar
   useEffect(() => {
     if (!ready) return;
     const ativos = shortages.filter((s) => s.status === "ativo");
@@ -128,21 +139,21 @@ function StoreProvider({ children }) {
       const idx = curr.findIndex((d) => d.id === dish.id);
       if (idx === -1) {
         const novo = { ...dish, criado_em: now, atualizado_em: now };
-        db.dishes.put(novo).catch(console.error);
+        sb.from("dishes").upsert({ id: novo.id, data: novo }).catch(console.error);
         return [...curr, novo];
       }
       const updated = { ...dish, atualizado_em: now };
-      db.dishes.put(updated).catch(console.error);
+      sb.from("dishes").upsert({ id: updated.id, data: updated }).catch(console.error);
       const copy = [...curr];
       copy[idx] = updated;
       return copy;
     });
-  }, [db]);
+  }, []);
 
   const removeDish = useCallback((id) => {
     _setDishes((curr) => curr.filter((d) => d.id !== id));
-    db.dishes.delete(id).catch(console.error);
-  }, [db]);
+    sb.from("dishes").delete().eq("id", id).catch(console.error);
+  }, []);
 
   const duplicateDish = useCallback((id) => {
     _setDishes((curr) => {
@@ -158,10 +169,10 @@ function StoreProvider({ children }) {
         bloqueado: false,
         motivo_bloqueio: [],
       };
-      db.dishes.put(copy).catch(console.error);
+      sb.from("dishes").upsert({ id: copy.id, data: copy }).catch(console.error);
       return [...curr, copy];
     });
-  }, [db]);
+  }, []);
 
   // ===== SHORTAGE MUTATIONS =====
   const setShortages = useCallback((updater) => {
@@ -169,69 +180,71 @@ function StoreProvider({ children }) {
       const next = typeof updater === "function" ? updater(curr) : updater;
       const prevIds = new Set(curr.map((s) => s.id));
       const nextIds = new Set(next.map((s) => s.id));
-      next.forEach((s) => db.shortages.put(s).catch(console.error));
-      prevIds.forEach((id) => { if (!nextIds.has(id)) db.shortages.delete(id).catch(console.error); });
+      next.forEach((s) => sb.from("shortages").upsert({ id: s.id, data: s }).catch(console.error));
+      prevIds.forEach((id) => {
+        if (!nextIds.has(id)) sb.from("shortages").delete().eq("id", id).catch(console.error);
+      });
       return next;
     });
-  }, [db]);
+  }, []);
 
   // ===== HISTORY MUTATIONS =====
   const setHistory = useCallback((updater) => {
     _setHistory((curr) => {
       const next = typeof updater === "function" ? updater(curr) : updater;
-      next.forEach((h) => db.shortage_history.put(h).catch(console.error));
+      next.forEach((h) => sb.from("shortage_history").upsert({ id: h.id, data: h }).catch(console.error));
       return next;
     });
-  }, [db]);
+  }, []);
 
   // ===== CONFIG MUTATIONS =====
   const setConfig = useCallback((newConfig) => {
     _setConfig(newConfig);
     Object.entries(newConfig).forEach(([key, value]) => {
-      db.config.put({ key, value }).catch(console.error);
+      sb.from("config").upsert({ key, value }).catch(console.error);
     });
-  }, [db]);
+  }, []);
 
-  // ===== BULK RESTORE (import backup) =====
+  // ===== BULK RESTORE (importar backup) =====
   const restoreBackup = useCallback(async (backup) => {
     await Promise.all([
-      db.dishes.clear(),
-      db.shortages.clear(),
-      db.shortage_history.clear(),
-      db.config.clear(),
+      sb.from("dishes").delete().neq("id", ""),
+      sb.from("shortages").delete().neq("id", ""),
+      sb.from("shortage_history").delete().neq("id", ""),
+      sb.from("config").delete().neq("key", ""),
     ]);
     if (backup.dishes?.length) {
-      await db.dishes.bulkAdd(backup.dishes);
+      await sb.from("dishes").insert(backup.dishes.map((d) => ({ id: d.id, data: d })));
       _setDishes(backup.dishes);
     }
     if (backup.shortages?.length) {
-      await db.shortages.bulkAdd(backup.shortages);
+      await sb.from("shortages").insert(backup.shortages.map((s) => ({ id: s.id, data: s })));
       _setShortages(backup.shortages);
     }
     if (backup.history?.length) {
-      await db.shortage_history.bulkAdd(backup.history);
+      await sb.from("shortage_history").insert(backup.history.map((h) => ({ id: h.id, data: h })));
       _setHistory(backup.history);
     }
     if (backup.config) {
       const entries = Object.entries(backup.config).map(([key, value]) => ({ key, value }));
-      await db.config.bulkAdd(entries);
+      await sb.from("config").insert(entries);
       _setConfig({ ...DEFAULT_CONFIG, ...backup.config });
     }
-  }, [db]);
+  }, []);
 
   // ===== CLEAR ALL =====
   const clearAll = useCallback(async () => {
     await Promise.all([
-      db.dishes.clear(),
-      db.shortages.clear(),
-      db.shortage_history.clear(),
-      db.config.clear(),
+      sb.from("dishes").delete().neq("id", ""),
+      sb.from("shortages").delete().neq("id", ""),
+      sb.from("shortage_history").delete().neq("id", ""),
+      sb.from("config").delete().neq("key", ""),
     ]);
     _setDishes([]);
     _setShortages([]);
     _setHistory([]);
     _setConfig(DEFAULT_CONFIG);
-  }, [db]);
+  }, []);
 
   // ===== TOASTS =====
   const [toasts, setToasts] = useState([]);
