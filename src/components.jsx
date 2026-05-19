@@ -3,6 +3,29 @@ const { useState, useEffect, useMemo, useRef, useCallback, createContext, useCon
 
 // ===== GEMINI API HELPER =====
 async function callGemini(apiKey, prompt) {
+  // Tenta o proxy do servidor (Vercel) primeiro — chave fica segura no servidor
+  const isHosted = location.hostname !== "localhost" && location.hostname !== "127.0.0.1";
+  if (isHosted) {
+    const proxyRes = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    // 503 = chave não configurada no servidor, cai no fallback abaixo
+    if (proxyRes.status !== 503) {
+      if (!proxyRes.ok) {
+        const err = await proxyRes.json().catch(() => ({}));
+        const msg = err.error?.message || err.error || "";
+        if (proxyRes.status === 429) throw new Error(`Limite de requisições atingido. ${msg}`);
+        throw new Error(`Erro Gemini ${proxyRes.status}: ${msg || "tente novamente."}`);
+      }
+      const data = await proxyRes.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    }
+  }
+
+  // Fallback: chave configurada pelo usuário nas Configurações
+  if (!apiKey) throw new Error("Configure a chave do Gemini nas Configurações ou peça ao administrador para configurá-la no Vercel.");
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
     {
@@ -17,9 +40,8 @@ async function callGemini(apiKey, prompt) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const msg = err.error?.message || "";
-    if (res.status === 429) throw new Error(`Limite de requisições atingido (429). ${msg}`);
-    if (res.status === 403) throw new Error(`Sem permissão (403). Verifique se a chave é do Google AI Studio (aistudio.google.com). ${msg}`);
-    if (res.status === 400) throw new Error(`Chave inválida ou modelo indisponível (400). ${msg}`);
+    if (res.status === 429) throw new Error(`Limite de requisições atingido. ${msg}`);
+    if (res.status === 403) throw new Error(`Sem permissão. Use uma chave do Google AI Studio (aistudio.google.com).`);
     throw new Error(`Erro Gemini ${res.status}: ${msg || "verifique sua chave."}`);
   }
   const data = await res.json();
