@@ -80,7 +80,7 @@ function ConfigModule() {
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--ok)" }}>
             <span>✓</span>
-            <span>IA ativa via servidor — Gemini 2.0 Flash</span>
+            <span>IA ativa via servidor — Gemini 1.5 Flash</span>
           </div>
         </div>
 
